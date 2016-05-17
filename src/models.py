@@ -22,14 +22,16 @@ class RNN:
                        'out': tf.Variable(tf.random_normal([self.n_classes]))}
 
         print("Initializing variables...")
-        self.pred = self.compute_output(self.x, self.istate, self.weights, self.biases)
+        self.output = self.compute_output(self.x, self.istate, self.weights, self.biases)
+        tf.get_variable_scope().reuse_variables()
+        self.hidden_l = self.compute_hidden(self.x, self.istate, self.weights, self.biases)
 
         print("Initializing loss and optimizer...")
-        self.cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(self.pred, self.y))  # Softmax loss
+        self.cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(self.output, self.y))  # Softmax loss
         self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.cost)  # Adam Optimizer
 
         print("Initializing evaluation...")
-        self.correct_pred = tf.equal(tf.argmax(self.pred, 1), tf.argmax(self.y, 1))
+        self.correct_pred = tf.equal(tf.argmax(self.output, 1), tf.argmax(self.y, 1))
         self.accuracy = tf.reduce_mean(tf.cast(self.correct_pred, tf.float32))
 
         self.saver = tf.train.Saver()
@@ -37,7 +39,7 @@ class RNN:
 
         self.observers = observers
 
-    def compute_output(self, _x, _istate, _weights, _biases):
+    def compute_hidden(self, _x, _istate, _weights, _biases):
         # input shape: (batch_size, n_steps, n_input)
         _x = tf.transpose(_x, [1, 0, 2])  # permute n_steps and batch_size
         # Reshape to prepare input to hidden activation
@@ -53,6 +55,10 @@ class RNN:
 
         # Get rnn cell output
         outputs, states = rnn.rnn(basic_rnn_cell, _x, initial_state=_istate)
+        return outputs
+
+    def compute_output(self, _x, _istate, _weights, _biases):
+        outputs = self.compute_hidden(_x, _istate, _weights, _biases)
 
         # Linear activation
         # Get inner loop last output
@@ -85,12 +91,20 @@ class RNN:
             test_acc = sess.run(self.cost, feed_dict=feed_dict)
             print("Testing Accuracy:", test_acc)
 
+    def run_function(self, model_path, fn, **kwargs):
+        feed_dict = kwargs.get("feed_dict", self.feed_dict)
+        with tf.Session() as sess:
+            sess.run(tf.initialize_all_variables())
+            self.saver.restore(sess, model_path)
+            return sess.run(fn, feed_dict=feed_dict)
+
     def log(self, sess, data, end=False, **kwargs):
-        rez = sess.run(self.pred, feed_dict=self.feed_dict)
+        rez = sess.run(self.output, feed_dict=self.feed_dict)
         train_acc = sess.run(self.accuracy, feed_dict=self.feed_dict)
         train_loss = sess.run(self.cost, feed_dict=self.feed_dict)
+        hidden_output = sess.run(self.hidden_l, feed_dict=self.feed_dict)
 
-        tbatch_size = len(data.test.x)
+        tbatch_size = kwargs["train_data"][0]
         tbatch_xs, tbatch_ys = data.test.next_batch(tbatch_size, self.n_steps)
         feed_dict = {self.x: tbatch_xs, self.y: tbatch_ys,
                      self.istate: np.zeros((tbatch_size, self.NN_type_koef * self.n_hidden))}
@@ -98,7 +112,8 @@ class RNN:
 
         self.observers.notify(self, batch_size=kwargs["train_data"][0], step=kwargs["train_data"][1],
                               display_step=kwargs["train_data"][2], rez=rez,
-                              plot_data=[train_loss, train_acc, test_accuracy], save_fig=end)
+                              plot_data=[train_loss, train_acc, test_accuracy], save_fig=end,
+                              hidden_output=hidden_output)
 
     def interactive(self):
         with tf.Session() as sess:

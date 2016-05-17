@@ -14,7 +14,7 @@ class NNInterface:
     def evaluate_hyperparameters(self, hyp_param):
         start_time = time.time()
         with tf.variable_scope(str(hash(frozenset(hyp_param.items())) % 10000)):
-            net = RNN(hyp_param, Observer([PerformanceGraph(3), CostConsole(2), RNNOutputConsole(5)]))
+            net = RNN(hyp_param, Observer([RNNOutputConsole(5), CostConsole(2), HiddenLayerConsole()]))
 
             net.train(self.data, hyp_param["training_iters"], hyp_param["batch_size"],
                       display_step=hyp_param["display_step"])
@@ -31,7 +31,7 @@ hyperparameters_all = {"n_input": [300],
                        "learning_rate": [0.001],
                        "n_classes": [2],
                        "training_iters": [50000],
-                       "batch_size": [10],
+                       "batch_size": [1],
                        "display_step": [1]}
 
 nn = NNInterface()

@@ -18,6 +18,20 @@ class Observer:
             observer.update(nn, *args, **kwargs)
 
 
+class HiddenLayerConsole:
+    def __init__(self):
+        self.fig, self.ax = plt.subplots()
+        self.fig.show()
+        pass
+
+    def update(self, nn, *args, **kwargs):
+        hidden_layer = np.array([i[0] for i in kwargs["hidden_output"]]).T
+        sns.heatmap(hidden_layer, cbar=False, square=True, annot=False)
+        self.ax.set_xlabel("Time steps")
+        self.ax.set_ylabel("Neuron")
+        print("lol")
+
+
 class PerformanceGraph:
     def __init__(self, n_metrics):
         self.perf_data = [[] for _ in range(n_metrics)]
