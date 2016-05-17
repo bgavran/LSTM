@@ -1,4 +1,5 @@
 import os
+import json
 import pickle
 import re
 import gensim
@@ -9,11 +10,16 @@ from sklearn.utils import shuffle
 
 
 class DataPath:
+    path = json.loads(open("config.json").read()).get("path", "")
     data = "data"
     imdb = "aclImdb"
     w2v_name = "myw2v.txt"
+    train_p_name = "train.p"
+    test_p_name = "test.p"
 
-    base = os.path.join(data, imdb)
+    base = os.path.join(path, data, imdb)
+    train_path = os.path.join(base, train_p_name)
+    test_path = os.path.join(base, test_p_name)
     w2v_path = os.path.join(base, w2v_name)
 
 

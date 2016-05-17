@@ -8,8 +8,7 @@ print("Started...   ")
 
 class NNInterface:
     def __init__(self):
-        self.train_path, self.test_path = "data/aclImdb/train.p", "data/aclImdb/test.p"
-        self.data = DataSets(self.train_path, self.test_path)
+        self.data = DataSets(DataPath.train_path, DataPath.test_path)
         print("Data loaded.")
 
     def evaluate_hyperparameters(self, hyp_param):
