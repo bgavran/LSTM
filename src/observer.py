@@ -1,6 +1,7 @@
 from time import gmtime, strftime
 
 from src.tf_imports import *
+from src.utils import *
 
 
 class Observer:
@@ -18,15 +19,16 @@ class Observer:
             observer.update(nn, *args, **kwargs)
 
 
-class HiddenLayerConsole:
+class HiddenLayerGraph:
     def __init__(self):
         self.fig, self.ax = plt.subplots()
         self.fig.show()
-        pass
 
     def update(self, nn, *args, **kwargs):
+        self.fig.canvas.draw_idle()
+        plt.pause(0.0001)
         hidden_layer = np.array([i[0] for i in kwargs["hidden_output"]]).T
-        sns.heatmap(hidden_layer, cbar=False, square=True, annot=False)
+        sns.heatmap(hidden_layer, cbar=False, square=True, annot=False, ax=self.ax)
         self.ax.set_xlabel("Time steps")
         self.ax.set_ylabel("Neuron")
         print("lol")
@@ -43,7 +45,7 @@ class PerformanceGraph:
         self.fig.show()
 
     def update(self, nn, *args, **kwargs):
-        plt.draw()
+        self.fig.canvas.draw_idle()
         plt.pause(0.0001)
         batch_size = kwargs["batch_size"]
         display_step = kwargs["display_step"]
@@ -55,10 +57,8 @@ class PerformanceGraph:
                             "\nBatch size: " + str(batch_size) +
                             "\nTime steps: " + str(nn.n_steps))
         self.plot_data()
-        plt.draw()
-        plt.pause(0.0001)
         if kwargs.get("save_fig", 0):
-            self.fig.savefig("logs/" + strftime("%Y_%B_%d__%H:%M", gmtime()), dpi=300)
+            self.fig.savefig(os.path.join(DataPath.base, "logs" + strftime("%Y_%B_%d__%H:%M", gmtime())), dpi=300)
 
     def plot_data(self):
         col = self.pallete[2]

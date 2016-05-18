@@ -3,7 +3,7 @@ from tensorflow.models.rnn import *
 
 
 class RNN:
-    def __init__(self, hyp_param, observers, lstm_flag=True):
+    def __init__(self, hyp_param, observers=None, lstm_flag=True):
         self.learning_rate = hyp_param["learning_rate"]
         self.n_input, self.n_steps, = hyp_param["n_input"], hyp_param["n_time_steps"]
         self.n_hidden, self.n_classes = hyp_param["n_hidden"], hyp_param["n_classes"]
@@ -15,7 +15,7 @@ class RNN:
         self.feed_dict = dict()
 
         self.weights = {
-            'hidden': tf.Variable(tf.random_normal([self.n_input, self.n_hidden])),  # Hidden layer weights
+            'hidden': tf.Variable(tf.random_normal([self.n_input, self.n_hidden])),
             'out': tf.Variable(tf.random_normal([self.n_hidden, self.n_classes]))
         }
         self.biases = {'hidden': tf.Variable(tf.random_normal([self.n_hidden])),
@@ -27,15 +27,16 @@ class RNN:
         self.hidden_l = self.compute_hidden(self.x, self.istate, self.weights, self.biases)
 
         print("Initializing loss and optimizer...")
-        self.cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(self.output, self.y))  # Softmax loss
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.cost)  # Adam Optimizer
+        self.cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(self.output, self.y))
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.cost)
 
         print("Initializing evaluation...")
         self.correct_pred = tf.equal(tf.argmax(self.output, 1), tf.argmax(self.y, 1))
         self.accuracy = tf.reduce_mean(tf.cast(self.correct_pred, tf.float32))
 
         self.saver = tf.train.Saver()
-        self.save_path = "/tmp/model.tmp"
+        self.save_path = os.path.join(DataPath.base, "tf_logs", dictionary_to_file_path(hyp_param),
+                                      strftime("%Y_%B_%d__%H:%M", gmtime()))
 
         self.observers = observers
 
@@ -91,15 +92,14 @@ class RNN:
             test_acc = sess.run(self.cost, feed_dict=feed_dict)
             print("Testing Accuracy:", test_acc)
 
-    def run_function(self, model_path, fn, **kwargs):
-        feed_dict = kwargs.get("feed_dict", self.feed_dict)
+    def run_function(self, model_path, fn, feed_dict):
         with tf.Session() as sess:
             sess.run(tf.initialize_all_variables())
             self.saver.restore(sess, model_path)
             return sess.run(fn, feed_dict=feed_dict)
 
     def log(self, sess, data, end=False, **kwargs):
-        rez = sess.run(self.output, feed_dict=self.feed_dict)
+        rez = sess.run(tf.nn.softmax_cross_entropy_with_logits(self.output), feed_dict=self.feed_dict)
         train_acc = sess.run(self.accuracy, feed_dict=self.feed_dict)
         train_loss = sess.run(self.cost, feed_dict=self.feed_dict)
         hidden_output = sess.run(self.hidden_l, feed_dict=self.feed_dict)
