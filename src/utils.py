@@ -28,6 +28,7 @@ class DataFeed:
 
     def __init__(self, pickle_file_path):
         self.curr_batch_index = 0
+        self.last_batch_size = None
         data = pickle.load(open(pickle_file_path, "rb"))
         self.x = np.array(data[0])  # reviews
         self.y = np.array(data[1])  # ratings
@@ -47,12 +48,14 @@ class DataFeed:
         return ret
 
     def next_batch(self, batch_size, review_size):
-        batch_count = len(self.x) / batch_size
-        assert batch_count == int(batch_count)  # number of batches must be an integer
-        batch_count = int(batch_count)
-        if self.curr_batch_index >= batch_count or not self.batch_order.size:
+        batch_count_d = len(self.x) / batch_size
+        batch_count = int(batch_count_d)
+        assert batch_count_d == batch_count  # number of batches must be an integer
+        if self.curr_batch_index >= batch_count or not self.batch_order.size or (
+                        self.last_batch_size is not None and self.last_batch_size != batch_size):
             self.curr_batch_index = 0
             self.batch_order = np.random.permutation(batch_count)
+            self.last_batch_size = batch_size
 
         batch_x = np.split(self.x, batch_count)[self.batch_order[self.curr_batch_index]]
         batch_y = np.split(self.y, batch_count)[self.batch_order[self.curr_batch_index]]
@@ -96,7 +99,7 @@ class DataSets:
 
 
 def dictionary_to_file_path(hyp):
-    replacement = {"{": "", "}": "", "[": "", "]": "", "'": "", " ": "",
+    replacement = {"{": "", "}": "", "[": "", "]": "", "'": "", " ": "", ":": "",
                    ",": "_"}
     return "".join([replacement.get(char, char) for char in str(hyp)])
 
@@ -110,7 +113,7 @@ def pretty_print(hyp):
     print("Recurrent time steps: " + str(hyp["n_time_steps"]))
 
     print("----------Training hyperparameters----------")
-    print("Learning rate: " + str(hyp["learning_rate"]))
+    print("Learning rate: " + str(hyp["starting_learning_rate"]))
     print("Batch size: " + str(hyp["batch_size"]))
     print("Training iterations: " + str(hyp["training_iters"]))
 
@@ -130,3 +133,4 @@ def overlay_text(axs, texts, n_time_steps, batch_size):
         for j, elem in enumerate(row):
             axs.text(elem[0], elem[1], texts[i][j], fontsize=(4 - len(texts[i][j])))
     return axs
+

@@ -35,7 +35,8 @@ class HiddenLayerGraph:
 
 
 class PerformanceGraph:
-    def __init__(self, n_metrics):
+    def __init__(self):
+        n_metrics = 3
         self.perf_data = [[] for _ in range(n_metrics)]
         self.fig, self.ax1 = plt.subplots()
         self.ax2 = self.ax1.twinx()
@@ -51,14 +52,18 @@ class PerformanceGraph:
         display_step = kwargs["display_step"]
         for i, data in enumerate(self.perf_data):
             data.append(kwargs["plot_data"][i])
-        self.ax1.set_xlabel("Training iterations (x " + str(batch_size * display_step) + ")" +
-                            "\nLearning rate " + str(nn.learning_rate) +
-                            "\nHidden layer size " + str(nn.n_hidden) +
+        self.ax1.set_xlabel("Training iterations: (x " + str(batch_size * display_step) + ")" +
+                            "\nLearning rate, decay, decay_steps_div: " + str(nn.starting_learning_rate) + ", " +
+                            str(nn.decay_rate) + ", " + str(nn.decay_steps_div) +
+                            "\nNumber of stacked RNN layers: " + str(nn.n_layers) +
+                            "\nHidden layer size: " + str(nn.n_hidden) +
                             "\nBatch size: " + str(batch_size) +
                             "\nTime steps: " + str(nn.n_steps))
         self.plot_data()
         if kwargs.get("save_fig", 0):
-            self.fig.savefig(os.path.join(DataPath.base, "logs" + strftime("%Y_%B_%d__%H:%M", gmtime())), dpi=300)
+            save_folder = os.path.join(nn.tb_path, "visualization", "train_images")
+            PerformanceGraph.save_image(save_folder, nn.timestamp)
+            plt.close(self.fig)
 
     def plot_data(self):
         col = self.pallete[2]
@@ -81,6 +86,14 @@ class PerformanceGraph:
         labs = [l.get_label() for l in lns]
         self.ax1.legend(lns, labs, loc="best")
 
+    @staticmethod
+    def save_image(folder_path, image_name, dpi=300):
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+        plt.savefig(os.path.join(folder_path, image_name), dpi=dpi, bbox_inches="tight")
+        print("Saved figure " + image_name + ".")
+        plt.cla()
+
 
 class CostConsole:
     def __init__(self, n_metrics):
@@ -92,9 +105,9 @@ class CostConsole:
         for i, data in enumerate(self.perf_data):
             data.append(kwargs["plot_data"][i])
         print("Step " + str(step) + " Iter " + str(step * batch_size) +
-              ", Train Loss= " + "{:.6f}".format(self.perf_data[0][-1]) +
+              ", Train Loss= " + "{:.5f}".format(self.perf_data[0][-1]) +
               ", Train Accuracy= " + "{:.5f}".format(self.perf_data[1][-1]) +
-              ", Test Accuracy= " + "{:.5f}".format(self.perf_data[1][-1]))
+              ", Test Accuracy= " + "{:.5f}".format(self.perf_data[2][-1]))
 
 
 class RNNOutputConsole:
