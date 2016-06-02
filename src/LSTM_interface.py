@@ -1,5 +1,6 @@
 import time
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, accuracy_score
+from sklearn import svm
 
 from src.models import *
 from src.utils import *
@@ -32,7 +33,7 @@ class NNInterface:
         hidden = self.net.run_function(run_path + ".tmp", self.net.hidden_l, hidden_feed_dict)
         hidden = np.array(hidden).T
 
-        texts = [DataFeed.w2v_to_text(hx_input[i][:-1]) for i in reversed(range(batch_size))]
+        texts = [DataFeedw2v.w2v_to_text(hx_input[i][:-1]) for i in reversed(range(batch_size))]
         fig, ax = plt.subplots(figsize=(16, 11))
         for i in range(n_neurons):
             axs = sns.heatmap(hidden[i, :, :], cbar=False, yticklabels=False, xticklabels=False, square=True, ax=ax)
@@ -52,19 +53,21 @@ class NNInterface:
         correct_pred = np.equal(y_pred, y_true)
         # Tensorflow doesn't allow the "is True" boolean comparison in python
         print("Converting input to text...")
-        correct_input = [DataFeed.w2v_to_text(hx_input[i]) for i, item in enumerate(correct_pred) if item == 1]
-        incorrect_input = [DataFeed.w2v_to_text(hx_input[i]) for i, item in enumerate(correct_pred) if item == 0]
+        correct_input = [DataFeedw2v.w2v_to_text(hx_input[i]) for i, item in enumerate(correct_pred) if item == 1]
+        incorrect_input = [DataFeedw2v.w2v_to_text(hx_input[i]) for i, item in enumerate(correct_pred) if item == 0]
         correct_text = "\n----------\n".join([" ".join(i) for i in correct_input])
         incorrect_text = "\n----------\n".join([" ".join(i) for i in incorrect_input])
-        with open(os.path.join(path, "correctly_classified.txt"), "w+") as f:
+        with open(os.path.join(run_path, "correctly_classified.txt"), "w+") as f:
             f.write(correct_text)
-        with open(os.path.join(path, "incorrectly_classified.txt"), "w+") as f:
+        with open(os.path.join(run_path, "incorrectly_classified.txt"), "w+") as f:
             f.write(incorrect_text)
 
 
+s = len(DataFeedOneHot.vec.vocabulary_)
+
 hyperparameters_all = {"n_input": [300],
                        "n_time_steps": [100],
-                       "n_layers": [2],
+                       "n_layers": [1],
                        "n_hidden": [100],
                        "starting_learning_rate": [0.001],
                        "decay_rate": [0.6321],
@@ -74,17 +77,46 @@ hyperparameters_all = {"n_input": [300],
                        "batch_size": [1000],
                        "display_step": [10]}
 
+data = DataSets(DataFeedw2v)
+############################################################
+# batch_size = 500
+# start_time = time.time()
+# clf = svm.SVC()
+# train_x, train_y = data.train.next_batch(batch_size, 100, sparse_vector=True)
+# test_x, test_y = data.test.next_batch(batch_size, 100, sparse_vector=True)
+#
+# print("Data loaded.")
+#
+# train_x = np.array(train_x).reshape(batch_size, -1)
+# test_x = np.array(test_x).reshape(batch_size, -1)
+#
+# print("Data transformed.")
+#
+# # train_x = sparse.csr_matrix(train_x)
+# # test_x = sparse.csr_matrix(test_x)
+#
+# print("Sparse vectors created.")
+#
+# train_y = [1 if i == [1, 0] else 0 for i in train_y]
+# test_y = [1 if i == [1, 0] else 0 for i in test_y]
+# print("Training...")
+# clf.fit(train_x, train_y)
+# print("Accuracy score:", end="\n")
+# acc = accuracy_score(test_y, clf.predict(test_x))
+# print(acc)
+# print("\nExecution time: {:.2f}s".format(time.time() - start_time))
+# input()
 
-data = DataSets(DataPath.train_path, DataPath.test_path)
+############################################################
 
-model_path = "tf_logs/2016_May_22__14:18"
-path = os.path.join(DataPath.base, model_path)
-
+# model_path = "tf_logs/2016_May_22__14:18"
+# path = os.path.join(DataPath.base, model_path)
 for hyperparameters in cartesian_product(hyperparameters_all):
     print("Evaluating hyperparameters:\n", hyperparameters)
     nn = NNInterface(hyperparameters)
-    # nn.evaluate_hyperparameters(data, hyperparameters)
-    nn.net.test(data, 25000, path + ".tmp")
-    # nn.prediction_split_input(data, hyperparameters, path, batch_size=100)
-    nn.visualize_neurons(data, hyperparameters, path, batch_size=40)
+    nn.evaluate_hyperparameters(data, hyperparameters)
+    # path + ".tmp
+    # nn.net.test(data, 25000, nn.net.model_path)
+    nn.prediction_split_input(data, hyperparameters, nn.net.tb_path, batch_size=100)
+    # nn.visualize_neurons(data, hyperparameters, path, batch_size=40)
     tf.reset_default_graph()

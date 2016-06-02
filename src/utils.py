@@ -7,6 +7,9 @@ import numpy as np
 
 from itertools import product
 from sklearn.utils import shuffle
+from scipy import sparse
+from sklearn.feature_extraction.text import CountVectorizer
+from natsort import natsorted
 
 
 class DataPath:
@@ -16,14 +19,35 @@ class DataPath:
     w2v_name = "myw2v.txt"
     train_p_name = "train.p"
     test_p_name = "test.p"
+    vocab_name = "imdb.vocab"
 
     base_imdb = os.path.join(base, data, imdb)
-    train_path = os.path.join(base_imdb, train_p_name)
-    test_path = os.path.join(base_imdb, test_p_name)
+    vocab_path = os.path.join(base_imdb, vocab_name)
+    train_path = os.path.join(base_imdb, "train")
+    test_path = os.path.join(base_imdb, "test")
+    train_p_path = os.path.join(base_imdb, train_p_name)
+    test_p_path = os.path.join(base_imdb, test_p_name)
     w2v_path = os.path.join(base_imdb, w2v_name)
 
 
-class DataFeed:
+class Data:
+    def next_batch(self, batch_size, review_size):
+        raise NotImplemented()
+
+    @staticmethod
+    def to_constant_dense(arr_input, review_size):
+        delim = np.full((1, arr_input.shape[1]), 42, np.float64)
+        if arr_input.shape[0] < review_size:
+            zeroes = np.zeros((review_size - arr_input.shape[0] - 1, arr_input.shape[1]))
+            # app = np.vstack((delim, zeroes))
+            # ret = vstack((arr_input, app))
+            ret = np.vstack((arr_input, delim, zeroes))
+        else:
+            ret = np.vstack((arr_input[:review_size - 1], delim))
+        return ret
+
+
+class DataFeedw2v(Data):
     word2vec_dict = gensim.models.Word2Vec.load_word2vec_format(DataPath.w2v_path, binary=False)
 
     def __init__(self, pickle_file_path):
@@ -37,17 +61,7 @@ class DataFeed:
         self.x, self.y = shuffle(self.x, self.y, random_state=0)
         self.batch_order = np.array([])
 
-    @staticmethod
-    def to_constant_dense(arr_input, review_size):
-        delim = np.full((1, arr_input.shape[1]), 42, np.float64)
-        if arr_input.shape[0] < review_size:
-            zeroes = np.zeros((review_size - arr_input.shape[0] - 1, arr_input.shape[1]))
-            ret = np.vstack((arr_input, delim, zeroes))
-        else:
-            ret = np.vstack((arr_input[:review_size - 1], delim))
-        return ret
-
-    def next_batch(self, batch_size, review_size):
+    def next_batch(self, batch_size, review_size, sparse=False):
         batch_count_d = len(self.x) / batch_size
         batch_count = int(batch_count_d)
         assert batch_count_d == batch_count  # number of batches must be an integer
@@ -60,7 +74,7 @@ class DataFeed:
         batch_x = np.split(self.x, batch_count)[self.batch_order[self.curr_batch_index]]
         batch_y = np.split(self.y, batch_count)[self.batch_order[self.curr_batch_index]]
 
-        batch_x = [DataFeed.to_constant_dense(self.text_to_w2v(i), review_size) for i in batch_x]
+        batch_x = [DataFeedw2v.to_constant_dense(self.text_to_w2v(i), review_size) for i in batch_x]
         batch_y = [[1, 0] if int(i) > 5 else [0, 1] for i in batch_y]
 
         self.curr_batch_index += 1
@@ -74,7 +88,7 @@ class DataFeed:
         count = 0
         for i in review_text.split(" "):
             try:
-                word_embedding.append(DataFeed.word2vec_dict[i.lower()])
+                word_embedding.append(DataFeedw2v.word2vec_dict[i.lower()])
             except KeyError:
                 count += 1
         return np.array(word_embedding)
@@ -87,15 +101,85 @@ class DataFeed:
             if vector[0] == 42:
                 text.extend(["0"] * (len(vector) - i - 1))
                 break
-            ind = np.where(np.all(vector == DataFeed.word2vec_dict.syn0, axis=1))[0][0]
-            text.append(DataFeed.word2vec_dict.index2word[ind])
+            ind = np.where(np.all(vector == DataFeedw2v.word2vec_dict.syn0, axis=1))[0][0]
+            text.append(DataFeedw2v.word2vec_dict.index2word[ind])
         return text
 
 
+class DataFeedOneHot(Data):
+    word_list = [i for i in open(DataPath.vocab_path).read().split()]
+    vec = CountVectorizer(stop_words="english", max_features=10000).fit(word_list)
+
+    def __init__(self, base_path):
+        self.curr_batch_index = 0
+        self.last_batch_size = None
+        self.pos_review, self.pos_rating = self.load_files(os.path.join(base_path, "pos"))
+        self.neg_review, self.neg_rating = self.load_files(os.path.join(base_path, "neg"))
+
+        self.pos_bow = [DataFeedOneHot.vec.transform(review.split()) for review in self.pos_review]
+        self.neg_bow = [DataFeedOneHot.vec.transform(review.split()) for review in self.neg_review]
+
+        self.reviews = np.array(self.pos_bow + self.neg_bow)
+        self.ratings = np.array(self.pos_rating + self.neg_rating)
+
+        self.x, self.y = shuffle(self.reviews, self.ratings, random_state=0)
+        self.batch_order = np.array([])
+
+    def next_batch(self, batch_size, review_size, sparse_vector=False):
+        batch_count_d = len(self.x) / batch_size
+        batch_count = int(batch_count_d)
+        assert batch_count_d == batch_count  # number of batches must be an integer
+        if self.curr_batch_index >= batch_count or not self.batch_order.size or (
+                        self.last_batch_size is not None and self.last_batch_size != batch_size):
+            self.curr_batch_index = 0
+            self.batch_order = np.random.permutation(batch_count)
+            self.last_batch_size = batch_size
+
+        batch_x = np.split(self.x, batch_count)[self.batch_order[self.curr_batch_index]]
+        batch_y = np.split(self.y, batch_count)[self.batch_order[self.curr_batch_index]]
+
+        if sparse_vector:
+            batch_x = sparse.csr_matrix([(Data.to_constant_dense(review.toarray(), review_size)) for review in batch_x])
+        else:
+            batch_x = [DataFeedOneHot.to_constant_dense(i.toarray(), review_size) for i in batch_x]
+        batch_y = [[1, 0] if int(i) > 5 else [0, 1] for i in batch_y]
+
+        self.curr_batch_index += 1
+        return batch_x, batch_y
+
+    @staticmethod
+    def load_files(file_path):
+        review_text = []
+        review_rating = []
+        c = 0
+
+        for file in natsorted(os.listdir(file_path)):
+            print(c, "    ", file)
+            c += 1
+            # tuple = (file_text, rating)
+            rating = file[-6:-4]
+
+            if rating[0] == "_":
+                rating = rating[1]
+            review_text.append(open(os.path.join(file_path, file)).read())
+            review_rating.append(rating)
+
+        return review_text, review_rating
+
+
 class DataSets:
-    def __init__(self, train_path, test_path):
-        self.train = DataFeed(train_path)
-        self.test = DataFeed(test_path)
+    def __init__(self, data_feed):
+        if data_feed is DataFeedw2v:
+            self.train_path = DataPath.train_p_path
+            self.test_path = DataPath.test_p_path
+        elif data_feed is DataFeedOneHot:
+            self.train_path = DataPath.train_path
+            self.test_path = DataPath.test_path
+        else:
+            raise Exception("Invalid data_feed argument!")
+
+        self.train = data_feed(self.train_path)
+        self.test = data_feed(self.test_path)
 
 
 def dictionary_to_file_path(hyp):
@@ -133,4 +217,3 @@ def overlay_text(axs, texts, n_time_steps, batch_size):
         for j, elem in enumerate(row):
             axs.text(elem[0], elem[1], texts[i][j], fontsize=(4 - len(texts[i][j])))
     return axs
-
