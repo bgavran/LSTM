@@ -38,11 +38,18 @@ class PerformanceGraph:
     def __init__(self):
         n_metrics = 3
         self.perf_data = [[] for _ in range(n_metrics)]
-        self.fig, self.ax1 = plt.subplots()
+        self.fig, self.ax1 = plt.subplots(figsize=(2, 1))
         self.ax2 = self.ax1.twinx()
 
         sns.set_style("darkgrid")
         self.pallete = sns.color_palette("bright")
+        self.font_size = 20
+        for item in ([self.ax1.title,
+                      self.ax1.xaxis.label, self.ax1.yaxis.label,
+                      self.ax2.xaxis.label, self.ax2.yaxis.label] +
+                         self.ax1.get_xticklabels() + self.ax1.get_yticklabels() +
+                         self.ax2.get_xticklabels() + self.ax2.get_yticklabels()):
+            item.set_fontsize(self.font_size)
         self.fig.show()
 
     def update(self, nn, *args, **kwargs):
@@ -76,15 +83,16 @@ class PerformanceGraph:
 
         col = self.pallete[0]
         line2 = self.ax2.plot(x_range, self.perf_data[1], color=col, label="Train accuracy")
-        self.ax2.set_ylabel("Train/test accuracy", color=col)
+        self.ax2.set_ylabel("Train/validation accuracy", color=col)
         for tl in self.ax2.get_yticklabels():
             tl.set_color(col)
 
-        line3 = self.ax2.plot(x_range, self.perf_data[2], color=self.pallete[3], label="Test accuracy")
+        line3 = self.ax2.plot(x_range, self.perf_data[2], color=self.pallete[3], label="Validation accuracy")
 
         lns = line1 + line2 + line3
         labs = [l.get_label() for l in lns]
-        self.ax1.legend(lns, labs, loc="best")
+        self.ax1.legend(lns, labs, loc="lower right")
+        plt.setp(self.ax1.get_title(), fontsize=self.font_size)
 
     @staticmethod
     def save_image(folder_path, image_name, dpi=300):

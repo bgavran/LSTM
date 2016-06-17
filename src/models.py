@@ -119,6 +119,15 @@ class RNN:
         test_acc = self.run_function(model_path, self.accuracy, feed_dict)
         print("--------------------Test accuracy--------------------\n"
               "                       ", test_acc)
+        return test_acc
+
+    def validate(self, data, batch_size, model_path):
+        val_data, val_label = data.validation.next_batch(batch_size, self.n_steps)
+        feed_dict = {self.x: val_data, self.y: val_label}
+        val_acc = self.run_function(model_path, self.accuracy, feed_dict)
+        print("--------------------Validation accuracy--------------------\n"
+              "                       ", val_acc)
+        return val_acc
 
     def run_function(self, model_path, fn, feed_dict):
         with tf.Session() as sess:

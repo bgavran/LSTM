@@ -32,7 +32,7 @@ class DataPath:
 
 class Data:
     def next_batch(self, batch_size, review_size):
-        raise NotImplemented()
+        raise NotImplementedError()
 
     @staticmethod
     def to_constant_dense(arr_input, review_size):
@@ -48,12 +48,12 @@ class Data:
 
 
 class DataFeedw2v(Data):
+    input_size = 300
     word2vec_dict = gensim.models.Word2Vec.load_word2vec_format(DataPath.w2v_path, binary=False)
 
-    def __init__(self, pickle_file_path):
+    def __init__(self, data):
         self.curr_batch_index = 0
         self.last_batch_size = None
-        data = pickle.load(open(pickle_file_path, "rb"))
         self.x = np.array(data[0])  # reviews
         self.y = np.array(data[1])  # ratings
 
@@ -62,6 +62,8 @@ class DataFeedw2v(Data):
         self.batch_order = np.array([])
 
     def next_batch(self, batch_size, review_size, sparse=False):
+        if batch_size == -1:
+            batch_size = len(self.x)
         batch_count_d = len(self.x) / batch_size
         batch_count = int(batch_count_d)
         assert batch_count_d == batch_count  # number of batches must be an integer
@@ -105,10 +107,28 @@ class DataFeedw2v(Data):
             text.append(DataFeedw2v.word2vec_dict.index2word[ind])
         return text
 
+    @staticmethod
+    def read_files_pos_neg(file_path):
+        review_text = []
+        review_rating = []
+        c = 0
+        for i, file in enumerate(natsorted(os.listdir(file_path))):
+            if i % 1000 == 0:
+                print(c, "    ", file)
+            c += 1
+            # tuple = (file_text, rating)
+            rating = file[-6:-4]
+            if rating[0] == "_":
+                rating = rating[1]
+            review_text.append(open(file_path + file).read())
+            review_rating.append(rating)
+        return review_text, review_rating
+
 
 class DataFeedOneHot(Data):
+    input_size = 1000
     word_list = [i for i in open(DataPath.vocab_path).read().split()]
-    vec = CountVectorizer(stop_words="english", max_features=10000).fit(word_list)
+    vec = CountVectorizer(stop_words="english", max_features=input_size).fit(word_list)
 
     def __init__(self, base_path):
         self.curr_batch_index = 0
@@ -178,8 +198,14 @@ class DataSets:
         else:
             raise Exception("Invalid data_feed argument!")
 
-        self.train = data_feed(self.train_path)
-        self.test = data_feed(self.test_path)
+        data_train = np.array(pickle.load(open(self.train_path, "rb")))
+        data_validation_test = np.array(pickle.load(open(self.test_path, "rb")))
+        delim = 10000
+        data_validation = data_validation_test[:, :delim]
+        data_test = data_validation_test[:, delim:]
+        self.train = data_feed(data_train)
+        self.validation = data_feed(data_validation)
+        self.test = data_feed(data_test)
 
 
 def dictionary_to_file_path(hyp):
