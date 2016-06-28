@@ -3,7 +3,7 @@
 Playing around with various LSTM topologies and trying to figure out TensorFlow.
 Using [aclIMDb data](http://ai.stanford.edu/~amaas/data/sentiment/ "aclIMDb") to do that.
 
-Achieved ~85% accuracy. It yields different types of activations on different neurons:
+Achieved ~85% accuracy. It yields different types of activations on different neurons.
 
 Not a very interesting neuron, it models some uninterpretable features.
 ![alt text](https://github.com/bgavran3/LSTM/blob/master/img/not_interesting.png "")
