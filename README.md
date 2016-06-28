@@ -1,7 +1,7 @@
 # LSTM
 
 Playing around with various LSTM topologies and trying to figure out TensorFlow.
-Using [aclIMDb data](http://ai.stanford.edu/~amaas/data/sentiment/ "aclIMDb") to do that.
+Using [IMDb data](http://ai.stanford.edu/~amaas/data/sentiment/ "aclIMDb") to do that.
 
 Achieved ~85% accuracy. It yields different types of activations on different neurons.
 
