@@ -15,11 +15,4 @@ It also puts them on a linear scale where some words are more positive/negative 
 Neuron that learned to count zeroes:
 ![alt text](https://github.com/bgavran3/LSTM/blob/master/img/zero_counter.png "")
 
-
-
-
-
-
-
-
-
+Inspired by Karpathy's [amazing article](http://karpathy.github.io/2015/05/21/rnn-effectiveness/ "").
