@@ -1,6 +1,5 @@
 import time
 from sklearn.metrics import confusion_matrix, accuracy_score
-from sklearn import svm
 
 from src.models import *
 from src.utils import *
@@ -97,6 +96,7 @@ for i, hyperparameters in enumerate(cartesian_product(hyperparameters_all)):
         tf.reset_default_graph()
         print("Current state:")
         print(maxx)
+
 best_hyperparameters = cartesian_product(hyperparameters_all)[np.argmax(maxx)]
 print("Best hyperparameters:")
 print(best_hyperparameters)
