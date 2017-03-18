@@ -10,10 +10,10 @@ The network yields different types of activations on different neurons. The visu
 Neuron that fires positively when detects words such as *worst*, *bad*, *awful* and positively when it detects words such as *classic*, *good*, *finest* etc.
 It also puts them on a linear scale where some words are more positive/negative than others.
 ![alt text](https://github.com/bgavran3/LSTM/blob/master/img/sentiment_detector.png "")
----
+
 Neuron that learned to count zeroes:
 ![alt text](https://github.com/bgavran3/LSTM/blob/master/img/zero_counter.png "")
----
+
 For comparison, here is a not very interesting neuron, which models some uninterpretable features.
 ![alt text](https://github.com/bgavran3/LSTM/blob/master/img/not_interesting.png "")
 
