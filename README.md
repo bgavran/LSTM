@@ -5,7 +5,7 @@ Using the [IMDb review data](http://ai.stanford.edu/~amaas/data/sentiment/ "aclI
 
 #### Achieved ~85% accuracy. 
 # Visualizations
-The network yields different types of activations on different neurons. The visualizations of the most interesting neurons are shown below.
+The network yields different types of activations on different neurons. The visualizations of the most interesting neurons are shown below. Each image represents the activations of one single neuron in the network. Each row represents one input example (one review). Each column represents the activations of that neuron at time *t*.
 
 Neuron that fires positively when detects words such as *worst*, *bad*, *awful* and positively when it detects words such as *classic*, *good*, *finest* etc.
 It also puts them on a linear scale where some words are more positive/negative than others.
